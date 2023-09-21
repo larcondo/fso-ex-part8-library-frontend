@@ -4,8 +4,19 @@ import { useQuery } from '@apollo/client'
 
 const Books = (props) => {
   const [filter, setFilter] = useState('all genres')
+  const [genres, setGenres] = useState(null)
+
   const result = useQuery(ALL_BOOKS, {
-    skip: !props.show
+    variables: { genre: null },
+    skip: !props.show,
+    onError: (error) => console.log(error.graphQLErrors[0].message),
+    onCompleted: (data) => {
+      let generos = []
+      data.allBooks
+        .map(b => generos = generos.concat(b.genres))
+        
+      setGenres([...new Set(generos.concat('all genres'))])
+    }
   })
   
   if (!props.show) return null
@@ -13,14 +24,6 @@ const Books = (props) => {
   if (result.loading) return <div>loading...</div>
 
   const books = result.data.allBooks
-  let gen = []
-  const generos = result.data.allBooks.map( b => b.genres)
-  generos.forEach(element => {
-    element.forEach( g => {
-      if (!gen.includes(g)) gen.push(g)
-    } )
-  });
-  gen.push('all genres')
 
   return(
     <div>
@@ -32,24 +35,27 @@ const Books = (props) => {
             <th></th>
             <th>author</th>
             <th>published</th>
-            <th>genres</th>
           </tr>
-          { books
-              .filter(b => b.genres.includes(filter) || filter === 'all genres')
-              .map( b => (
-                <tr key={b.title}>
-                  <td>{ b.title }</td>
-                  <td>{ b.author.name }</td>
-                  <td>{ b.published }</td>
-                  <td>{ b.genres.join(' / ')}</td>
-                </tr>
-              ))
+          { books.map( b => (
+              <tr key={b.title}>
+                <td>{ b.title }</td>
+                <td>{ b.author.name }</td>
+                <td>{ b.published }</td>
+                <td>{ b.genres.join(' / ') }</td>
+              </tr>
+            ))
           }
         </tbody>
       </table>
       <div>
-        {gen && gen.map( g => 
-          <button key={g} onClick={() => setFilter(g)}>
+        { genres && genres.map( g => 
+          // using useQuery 'refetch'
+          <button key={g} 
+            onClick={() => { 
+              setFilter(g)
+              result.refetch({ genre: g !== 'all genres' ? g : null })
+            }}
+          >
             { g }
           </button>
         )}
